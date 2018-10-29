@@ -31,3 +31,7 @@ gulp.task('build', (callback) =>
 		callback,
 	)
 );
+
+gulp.task('benchmark', () =>
+	require('./benchmark/index.js')
+);
