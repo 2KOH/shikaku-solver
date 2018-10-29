@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css?family=Noto+Sans+JP" rel="stylesheet">
+<style>
+* {
+	font-family: 'Noto Sans JP';
+}
+</style>
+
+<div class="container">
+	<h1>四角に切れソルバー</h1>
+	<p><button id="select-file-button" class="btn btn-primary">ファイルを選択...</button></p>
+	<p id="question-area"></p>
+	<p>
+		<button id="solve-button" class="btn btn-primary">解く</button>
+	</p>
+	<p id="answers-area"></p>
+	<p>
+		<button class="btn btn-info" type="button" data-toggle="collapse" data-target="#howto" aria-expanded="false" aria-controls="howto">
+		使い方
+		</button>
+	</p>
+	<div class="collapse" id="howto">
+		<h2>概要</h2>
+		<p>
+			<a href="https://www.nikoli.co.jp/ja/puzzles/shikaku/">四角に切れ</a>を解くブラウザアプリです。四角に切れの問題を<a href="http://pencilbox.osdn.jp/">PencilBox</a>で保存したファイルを用意し、このページにドラッグ&amp;ドロップするか「ファイルを選択...」ボタンで読み込み、「解く」ボタンをクリックしてください。
+		</p>
+		<p>
+			解答に要する時間はパズルの大きさに依存するため、大きなサイズの問題では時間がかかる可能性があります。
+		</p>
+		<h2>動作環境</h2>
+		<p>
+			最新の Chrome、Firefox、Edge で動作すると思います。IE ではたぶん動きません。
+		</p>
+		<h2>ソースコードその他</h2>
+		<p>
+			<a href="https://github.com/2KOH/shikaku-solver">GitHub</a>
+		</p>
+	</div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+
+<script src="./dist/shikaku-solver.min.js"></script>
+<script>
+let question = null;
+
+const createElement = ({ rows, columns, numbers, squares }) => {
+	const table = document.createElement('table');
+	Object.assign(table.style, {
+		borderCollapse: 'collapse',
+	});
+	const tds = [];
+	for (let y = 0; y < rows; y++) {
+		const tr = document.createElement('tr');
+		table.appendChild(tr);
+		tds[y] = [];
+		for (let x = 0; x < columns; x++) {
+			const td = document.createElement('td');
+			tr.appendChild(td);
+			tds[y][x] = td;
+			Object.assign(td.style, {
+				border: '1px solid #ccc',
+				height: '3ex',
+				width: '3ex',
+				textAlign: 'center',
+				verticalAlign: 'middle',
+			});
+		}
+	}
+	numbers.forEach(({ x, y, number }) => {
+		tds[y][x].textContent = number;
+	});
+	squares.forEach(({ x, y, width, height }) => {
+		for (let i = 0; i < width; i++) {
+			tds[y][x + i].style.borderTop = '3px solid #000';
+			tds[y + height - 1][x + i].style.borderBottom = '3px solid #000';
+		}
+		for (let i = 0; i < height; i++) {
+			tds[y + i][x].style.borderLeft = '3px solid #000';
+			tds[y + i][x + width - 1].style.borderRight = '3px solid #000';
+		}
+	});
+	return table;
+};
+
+const parsePencilBox = (text) => {
+	const [r, c, ...others] = text.split(/\r|\n|\r\n/);
+	const rows = ~~r;
+	const columns = ~~c;
+	const numbers = [];
+	for (let y = 0; y < rows && y < others.length; y++) {
+		const cells = others[y].split(/\s/);
+		for (let x = 0; x < columns && x < cells.length; x++) {
+			const number = ~~cells[x];
+			if (number <= 0) continue;
+			numbers.push({ x, y, number });
+		}
+	}
+	return { rows, columns, numbers };
+};
+
+const setQuestion = (() => {
+	const inputArea = document.getElementById('question-area');
+
+	return ({ rows, columns, numbers }) => {
+		question = { rows, columns, numbers };
+
+		inputArea.textContent = '';
+		inputArea.appendChild(createElement({
+			rows,
+			columns,
+			numbers,
+			squares: [{ y: 0, x: 0, height: rows, width: columns }],
+		}));
+	};
+})();
+
+const setAnswers = (() => {
+	const answersArea = document.getElementById('answers-area');
+
+	return (...answers) => {
+		answersArea.textContent = '';
+
+		const countElement = document.createElement('p');
+		countElement.textContent = `解の数: ${ answers.length }`;
+		answersArea.appendChild(countElement);
+
+		answers.forEach((answer) => {
+			const p = document.createElement('p');
+			p.appendChild(createElement(Object.assign({}, question, { squares: answer })));
+			answersArea.appendChild(p);
+		});
+	};
+})();
+
+const readFile = async (file) => {
+	if (!file) return;
+	const text = await new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = () => reject(reader.error);
+		reader.onabort = () => reject();
+		reader.readAsText(file);
+	});
+	const { rows, columns, numbers } = parsePencilBox(text);
+	if (rows <= 0 || columns <= 0) return;
+	setQuestion({ rows, columns, numbers });
+};
+
+window.addEventListener('dragenter', (e) => {
+	e.preventDefault();
+});
+
+window.addEventListener('dragover', (e) => {
+	e.preventDefault();
+});
+
+window.addEventListener('drop', async (e) => {
+	e.preventDefault();
+	readFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('select-file-button').addEventListener('click', (() => {
+	const inputElement = document.createElement('input');
+	inputElement.type = 'file';
+	inputElement.onchange = () => readFile(inputElement.files[0]);
+
+	return () => inputElement.click();
+})());
+
+document.getElementById('solve-button').addEventListener('click', (() => {
+	if (question == null) return;
+
+	setAnswers(...ShikakuSolver.solve(question));
+}));
+</script>
