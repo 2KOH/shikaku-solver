@@ -215,6 +215,6 @@ describe('solve', () => {
 
 describe('VERSION', () => {
 	it('バージョン番号を取得できること。', () => {
-		assert.strictEqual(Solver.VERSION, '0.0.1');
+		assert.strictEqual(Solver.VERSION, '0.0.2');
 	});
 });

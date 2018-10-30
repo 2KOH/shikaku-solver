@@ -10,6 +10,6 @@ module.exports = class {
 	}
 
 	static get VERSION() {
-		return '0.0.1';
+		return '0.0.2';
 	}
 };
