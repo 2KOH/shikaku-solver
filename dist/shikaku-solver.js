@@ -37,7 +37,7 @@ module.exports = class {
     y,
     number
   }) {
-    this._numbers.push({
+    this.numbers.push({
       x,
       y,
       number
@@ -45,86 +45,80 @@ module.exports = class {
   }
 
   getState() {
-    const width = this.columns + 1;
-    const cells = [];
+    const state = new State();
 
-    for (let y = 0; y < this.rows; y++) {
-      for (let x = 0; x < this.columns; x++) {
-        cells.push({});
-      }
-
-      cells.push({
-        decided: true
-      });
+    for (let i = 0; i < this.rows * this.columns; i++) {
+      state.addCell(i);
     }
 
-    for (let x = 0; x < this.columns; x++) {
-      cells.push({
-        decided: true
-      });
-    }
-
+    const cells = [...new Array(this.rows)].map(() => new Array(this.columns).fill(false));
+    this.numbers.forEach(({
+      x,
+      y
+    }) => {
+      cells[y][x] = true;
+    });
     this.numbers.forEach(({
       x,
       y,
       number
     }) => {
-      cells[x + y * width].number = number;
-    });
-    return new State({
-      width,
-      cells
-    });
-  }
+      const upperLimit = (() => {
+        for (let j = y - 1;; j--) {
+          if (j < 0 || cells[j][x]) return j + 1;
+        }
+      })();
 
-  setState(state) {}
+      const lowerLimit = (() => {
+        for (let j = y + 1;; j++) {
+          if (j >= this.rows || cells[j][x]) return j - 1;
+        }
+      })();
+
+      const leftLimits = [];
+      const rightLimits = [];
+
+      for (let j = upperLimit; j <= lowerLimit; j++) {
+        for (let i = x - 1;; i--) {
+          if (i < 0 || cells[j][i]) {
+            leftLimits[j] = i + 1;
+            break;
+          }
+        }
+
+        for (let i = x + 1;; i++) {
+          if (i >= this.columns || cells[j][i]) {
+            rightLimits[j] = i - 1;
+            break;
+          }
+        }
+      }
+
+      for (let height = 1; height <= lowerLimit - upperLimit + 1; height++) {
+        if (number % height !== 0) continue;
+        const width = number / height;
+
+        for (let y0 = Math.max(upperLimit, y - height + 1); y0 <= Math.min(y, lowerLimit - height + 1); y0++) {
+          const leftLimit = Math.max(...leftLimits.slice(y0, y0 + height));
+          const rightLimit = Math.min(...rightLimits.slice(y0, y0 + height));
+
+          for (let x0 = Math.max(leftLimit, x - width + 1); x0 <= Math.min(x, rightLimit - width + 1); x0++) {
+            state.addCandidateArea({
+              x: x0,
+              y: y0,
+              width,
+              height
+            }, [...new Array(width * height)].map((_, i) => x0 + i % width + (y0 + ~~(i / width)) * this.columns));
+          }
+        }
+      }
+    });
+    return state;
+  }
 
 };
 
-},{"./state.js":5}],2:[function(require,module,exports){
-module.exports = class {
-  constructor({
-    number = null,
-    decided = false
-  } = {}) {
-    this._number = number;
-    this._decided = !!decided;
-  }
-
-  get number() {
-    // 数字を返す。
-    // 数字マスでない場合は不定。
-    return this._number;
-  }
-
-  set number(value) {
-    // 数字を設定する。
-    this._number = value;
-  }
-
-  get decided() {
-    // 確定マスかを返す。
-    return this._decided;
-  }
-
-  set decided(value) {
-    // 確定マスかを設定する。
-    this._decided = !!value;
-  }
-
-  isNumber() {
-    // 未確定の数字マスかを返す。
-    return this._number != null && !this._decided;
-  }
-
-  isVoid() {
-    // 未確定の空きマスかを返す。
-    return this._number == null && !this._decided;
-  }
-
-};
-
-},{}],3:[function(require,module,exports){
+},{"./state.js":3}],2:[function(require,module,exports){
 const Board = require('./board.js');
 
 const {
@@ -144,9 +138,9 @@ module.exports = class {
     }).getState();
 
     for (const {
-      squares
+      areas
     } of search(state)) {
-      yield squares;
+      yield areas;
     }
   }
 
@@ -156,215 +150,95 @@ module.exports = class {
 
 };
 
-},{"./board.js":1,"./utilities.js":6}],4:[function(require,module,exports){
+},{"./board.js":1,"./utilities.js":4}],3:[function(require,module,exports){
 module.exports = class {
   constructor({
-    x,
-    y,
-    width,
-    height
+    cells = [],
+    areas = [],
+    candidateAreas = []
   } = {}) {
-    this._x = x;
-    this._y = y;
-    this._width = width;
-    this._height = height;
-  }
-
-  get x() {
-    return this._x;
-  }
-
-  get y() {
-    return this._y;
-  }
-
-  get width() {
-    return this._width;
-  }
-
-  get height() {
-    return this._height;
-  }
-
-};
-
-},{}],5:[function(require,module,exports){
-const Square = require('./square.js');
-
-const Cell = require('./cell.js');
-
-module.exports = class {
-  constructor({
-    width,
-    squares = [],
-    cells,
-    undecidedCells = null
-  } = {}) {
-    this._width = width;
-    this._squares = squares.map(square => new Square(square));
-    this._cells = cells.map(cell => new Cell(cell));
-
-    if (undecidedCells) {
-      this._undecidedCells = new Set(undecidedCells);
-    } else {
-      this._undecidedCells = new Set();
-
-      this._cells.forEach((cell, i) => {
-        if (!cell.decided) {
-          this._undecidedCells.add(i);
-        }
-      });
-    }
-  }
-
-  get width() {
-    return this._width;
-  }
-
-  get squares() {
-    return this._squares;
+    this._cells = new Map([...cells].map(([k, v]) => [k, new Set(v)]));
+    this._areas = new Set(areas);
+    this._candidateAreas = new Map([...candidateAreas].map(([k, v]) => [k, new Set(v)]));
   }
 
   get cells() {
+    // 未確定のセル一覧で、セルをキー、そのセルを含む候補領域一覧を表すセットを値としたマップ。
     return this._cells;
   }
 
-  get undecidedCells() {
-    // 未確定のセル番号一覧。
-    return this._undecidedCells;
+  get areas() {
+    // 確定済みの領域一覧を表すセット。
+    return this._areas;
   }
 
-  addSquare({
-    x,
-    y,
-    width,
-    height
-  }) {
-    this.squares.push(new Square({
-      x,
-      y,
-      width,
-      height
-    }));
-    const base = this.getFirstUndecidedCell();
+  get candidateAreas() {
+    // 候補領域一覧で、領域をキー、その領域に含まれるセル一覧を表すセットを値としたマップ。
+    return this._candidateAreas;
+  }
 
-    for (let j = 0; j < height; j++) {
-      const base2 = base + j * this.width;
+  addCell(cell) {
+    // 未確定のセルを追加する。
+    // 引数の正当性チェックは行わない。
+    this.cells.set(cell, new Set());
+    return this;
+  }
 
-      for (let i = 0; i < width; i++) {
-        const index = base2 + i;
-        this.cells[index].decided = true;
-        this.undecidedCells.delete(index);
-      }
+  addCandidateArea(area, cells) {
+    // 候補領域を追加する。
+    // 引数の正当性チェックは行わない。
+    // （area がすでに this.candidateAreas に含まれているとか、cells に this.cells に含まれていないものがあるとか）
+    this.candidateAreas.set(area, new Set(cells));
+
+    for (const cell of cells) {
+      this.cells.get(cell).add(area);
     }
 
     return this;
   }
 
-  getFirstUndecidedCell() {
-    // 最も左上にある未確定のセル番号を返す。
-    return this.undecidedCells.values().next().value;
+  decideArea(area) {
+    // 領域を確定する。
+    const cells = new Set(this.candidateAreas.get(area));
+
+    for (const cell of cells) {
+      for (const a of this.cells.get(cell)) {
+        for (const c of this.candidateAreas.get(a)) {
+          this.cells.get(c).delete(a);
+        }
+
+        this.candidateAreas.delete(a);
+      }
+
+      this.cells.delete(cell);
+    }
+
+    this.candidateAreas.delete(area);
+    this.areas.add(area);
+    return this;
   }
 
 };
 
-},{"./cell.js":2,"./square.js":4}],6:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 const State = require('./state.js');
 
-const getNotVoids = (cells, index, a, b) => {
-  // 指定したセル番号から順に右のセルを見ていき、最も左とその次にある void でないセル二つが、指定したセルから何番目かを返す。
-  // ただし、二つ目が a 以降である場合は、最も左のもの一つだけ返す。
-  // また、一つ目が b 以降である場合は、空の配列を返す。
-  const result = [];
-
-  for (let i = 0; result.length < 2 && !(b != null && i >= b) && !(a != null && result.length >= 1 && i >= a); i++) {
-    if (cells[index + i].isVoid()) {
-      continue;
-    }
-
-    result.push(i);
-  }
-
-  return result;
-};
-
 const tryState = function* (state) {
-  // 左上のマスに四角形を配置した state を繰り返す。
-  const base = state.getFirstUndecidedCell();
-  const {
-    width,
-    cells
-  } = state;
-  const x = base % width;
-  const y = ~~(base / width);
-  let firstNotVoidPosition = null;
-  let firstNotVoidNumber = null;
-  let secondNotVoidPosition = null;
+  // 仮定した state を繰り返す。
+  const min = [...state.cells].map( // 最も候補領域の少ないセルを取得する。
+  ([k, v]) => [k, v.size]).reduce((a, b) => a[1] <= b[1] ? a : b)[0];
 
-  for (let i = 0; !cells[base + i * width].decided; i++) {
-    const h = i + 1;
-    const base2 = base + i * width; // firstNotVoidPosition 等の変数を更新。
-
-    const notVoids = getNotVoids(cells, base2, firstNotVoidPosition, secondNotVoidPosition);
-
-    switch (notVoids.length) {
-      case 0:
-        {
-          break;
-        }
-
-      case 1:
-        {
-          if (firstNotVoidPosition <= notVoids[0]) {
-            secondNotVoidPosition = notVoids[0];
-            break;
-          }
-
-          secondNotVoidPosition = firstNotVoidPosition;
-          firstNotVoidPosition = notVoids[0];
-          firstNotVoidNumber = cells[base2 + firstNotVoidPosition].decided ? null : cells[base2 + firstNotVoidPosition].number;
-          break;
-        }
-
-      default:
-        {
-          firstNotVoidPosition = notVoids[0];
-          firstNotVoidNumber = cells[base2 + firstNotVoidPosition].decided ? null : cells[base2 + firstNotVoidPosition].number;
-          secondNotVoidPosition = notVoids[1];
-        }
-    }
-
-    if (firstNotVoidNumber == null) {
-      // 最も左が壁。
-      continue;
-    }
-
-    if (firstNotVoidPosition === secondNotVoidPosition) {
-      // 最も左とその次が同じ列。
-      continue;
-    }
-
-    if (firstNotVoidNumber % h !== 0) {
-      // 最も左の数字が h で割り切れない。
-      continue;
-    }
-
-    const w = firstNotVoidNumber / (i + 1);
-
-    if (firstNotVoidPosition + 1 <= w && w < secondNotVoidPosition + 1) {
-      // 幅が最も左の数字の列からその次の列までの間。
-      yield new State(state).addSquare({
-        x,
-        y,
-        width: w,
-        height: h
-      });
-    }
+  for (const area of state.cells.get(min)) {
+    yield new State(state).decideArea(area);
   }
 };
 
 const isFinished = state => {
-  return state.undecidedCells.size === 0;
+  return state.cells.size === 0;
+};
+
+const isFailed = state => {
+  return state.failed;
 };
 
 const search = function* (inputState) {
@@ -383,11 +257,10 @@ const search = function* (inputState) {
 };
 
 module.exports = {
-  getNotVoids,
   tryState,
   isFinished,
   search
 };
 
-},{"./state.js":5}]},{},[3])(3)
+},{"./state.js":3}]},{},[2])(2)
 });

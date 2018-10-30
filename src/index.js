@@ -4,8 +4,8 @@ const { search } = require('./utilities.js');
 module.exports = class {
 	static *solve({ rows, columns, numbers }) {
 		const state = new Board({ rows, columns, numbers }).getState();
-		for (const { squares } of search(state)) {
-			yield squares;
+		for (const { areas } of search(state)) {
+			yield areas;
 		}
 	}
 
