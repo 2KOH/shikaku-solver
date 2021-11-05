@@ -89,7 +89,7 @@ const createElement = ({ rows, columns, numbers, squares }) => {
 };
 
 const parsePencilBox = (text) => {
-	const [r, c, ...others] = text.split(/\r|\n|\r\n/);
+	const [r, c, ...others] = text.split(/\r\n|\r|\n/);
 	const rows = ~~r;
 	const columns = ~~c;
 	const numbers = [];
